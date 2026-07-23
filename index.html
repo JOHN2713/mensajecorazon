@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corazón de Partículas 3D - Optimizado</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(ellipse at bottom, #2d1b4e 0%, #0f051d 50%, #000000 100%);
+            cursor: grab;
+        }
+
+        body:active {
+            cursor: grabbing;
+        }
+
+        #counter {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            color: #ff6ff0;
+            font-size: 120px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(157, 78, 221, 0.8);
+            pointer-events: none;
+            z-index: 100;
+            display: none; /* Oculto */
+        }
+
+        .instructions {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff6ff0;
+            font-size: 16px;
+            text-shadow: 0 0 10px rgba(157, 78, 221, 0.6);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        #debug-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 10, 40, 0.9);
+            border: 2px solid #9d4edd;
+            border-radius: 12px;
+            padding: 20px;
+            color: #ff6ff0;
+            font-size: 14px;
+            z-index: 100;
+            box-shadow: 0 0 30px rgba(157, 78, 221, 0.4);
+            backdrop-filter: blur(10px);
+            min-width: 280px;
+            visibility: hidden;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        #debug-panel.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .control-group {
+            margin-bottom: 18px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #c77dff;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 5px;
+            background: #240046;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6ff0, #9d4edd);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(157, 78, 221, 0.6);
+        }
+
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6ff0, #9d4edd);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(157, 78, 221, 0.6);
+            border: none;
+        }
+
+        .stats {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(157, 78, 221, 0.3);
+            font-size: 12px;
+            color: #b19cd9;
+        }
+
+        .stats div {
+            margin: 5px 0;
+        }
+
+        /* Botón flotante */
+        #message-button {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #ff6ff0, #9d4edd);
+            border: none;
+            border-radius: 50px;
+            padding: 18px 35px;
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(157, 78, 221, 0.6), 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 100;
+            transition: all 0.3s ease;
+            animation: pulse-button 2s infinite;
+        }
+
+        #message-button:hover {
+            transform: translateX(-50%) scale(1.05);
+            box-shadow: 0 0 40px rgba(157, 78, 221, 0.9), 0 8px 20px rgba(0,0,0,0.4);
+        }
+
+        @keyframes pulse-button {
+            0%, 100% { box-shadow: 0 0 30px rgba(157, 78, 221, 0.6), 0 5px 15px rgba(0,0,0,0.3); }
+            50% { box-shadow: 0 0 50px rgba(157, 78, 221, 0.9), 0 5px 15px rgba(0,0,0,0.3); }
+        }
+
+        /* Modal */
+        #message-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #message-modal.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(45, 27, 78, 0.95), rgba(15, 5, 29, 0.95));
+            border: 2px solid #ff6ff0;
+            border-radius: 20px;
+            padding: 50px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 0 60px rgba(157, 78, 221, 0.8);
+            position: relative;
+            animation: modal-appear 0.5s ease;
+        }
+
+        @keyframes modal-appear {
+            from { transform: scale(0.7); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 30px;
+            color: #ff6ff0;
+            cursor: pointer;
+            border: none;
+            background: none;
+            transition: transform 0.2s;
+        }
+
+        .close-modal:hover {
+            transform: scale(1.2);
+        }
+
+        #message-text {
+            color: #ff6ff0;
+            font-size: 24px;
+            line-height: 1.8;
+            text-align: center;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 10px rgba(157, 78, 221, 0.5);
+        }
+
+        .typewriter-cursor {
+            display: inline-block;
+            width: 3px;
+            height: 1em;
+            background: #ff6ff0;
+            margin-left: 2px;
+            animation: blink 0.7s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">✨ Un detalle más alla de la imaginación <strong>Liz</strong> para que perdure en el tiempo ✨</div>
+    <div id="counter">0</div>
+    
+    <button id="message-button">💌 Alguien tiene un mensaje para ti</button>
+    
+    <div id="message-modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">×</button>
+            <p id="message-text"></p>
+        </div>
+    </div>
+
+    <div id="debug-panel">
+        <h3 style="margin-top: 0; color: #ff6ff0;">🎛️ Panel de Control</h3>
+
+        <div class="control-group">
+            <label>⚡ Velocidad: <span id="speed-value">40</span>/frame</label>
+            <input type="range" id="speed" min="5" max="120" value="40">
+        </div>
+
+        <div class="control-group">
+            <label>📏 Tamaño: <span id="size-value">0.8</span></label>
+            <input type="range" id="size" min="0.3" max="2.0" step="0.1" value="0.8">
+        </div>
+
+        <div class="control-group">
+            <label>🔄 Rotación: <span id="rotation-value">0.003</span></label>
+            <input type="range" id="rotation" min="0" max="0.01" step="0.001" value="0.003">
+        </div>
+
+        <div class="stats">
+            <div>Nodos: <span id="particle-count">0</span></div>
+            <div>FPS: <span id="fps">0</span></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/Pass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script>
+        // ==== Configuración general ====
+        let scene, camera, renderer, controls;
+        let composer, bloomPass;
+        let time = 0;
+
+        // Malla del corazón (grid de vértices + red alámbrica + nodos)
+        const GRID_COLS = 60;   // vueltas alrededor del contorno del corazón
+        const GRID_ROWS = 24;   // capas a lo largo del "grosor" redondeado
+        const nodeCount = GRID_COLS * GRID_ROWS;
+        let heartGrid = [];
+        let heartGroup, nodePoints, wireLines;
+
+        // Chispas / bokeh
+        const SPARKLE_COUNT = 420;
+        let sparklePoints;
+
+        let config = {
+            speed: 40,
+            size: 0.8,
+            autoRotation: 0.003
+        };
+
+        // FPS counter
+        let fps = 0;
+        let lastTime = Date.now();
+        let frames = 0;
+
+        function init() {
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 60);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x120826, 1);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 30;
+            controls.maxDistance = 100;
+
+            const glowTexture = createGlowTexture();
+
+            generateHeartGrid();
+            createHeartMeshes(glowTexture);
+            createSparkles(glowTexture);
+            createLightBeams(glowTexture);
+
+            setupPostProcessing();
+
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('keydown', onKeyDown);
+
+            setupControls();
+
+            animate();
+        }
+
+        // Textura circular suave (sprite de brillo) generada en canvas, sin assets externos
+        function createGlowTexture() {
+            const size = 128;
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+            gradient.addColorStop(0.55, 'rgba(255,255,255,0.25)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        // Material de puntos con tamaño por-vértice real (PointsMaterial no soporta esto de forma nativa)
+        function createPointMaterial(texture, sizeScale) {
+            return new THREE.ShaderMaterial({
+                uniforms: {
+                    pointTexture: { value: texture },
+                    sizeScale: { value: sizeScale }
+                },
+                vertexShader: `
+                    attribute float size;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    uniform float sizeScale;
+                    void main() {
+                        vColor = color;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = size * (sizeScale / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D pointTexture;
+                    varying vec3 vColor;
+                    void main() {
+                        vec4 tex = texture2D(pointTexture, gl_PointCoord);
+                        gl_FragColor = vec4(vColor, 1.0) * tex;
+                        if (gl_FragColor.a < 0.02) discard;
+                    }
+                `,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+        }
+
+        // Genera la superficie 3D del corazón como grid (u=contorno, v=grosor),
+        // reutilizando la ecuación paramétrica clásica del corazón.
+        const Z_AMPLITUDE = 10; // qué tan "inflado" (puffy) es el corazón hacia adelante/atrás
+
+        function generateHeartGrid() {
+            heartGrid = [];
+            for (let j = 0; j < GRID_ROWS; j++) {
+                // phi barre de polo trasero a polo delantero; scale=1 en el ecuador (silueta),
+                // scale=0 en los polos (centro del "domo"), como una esfera de latitud/longitud
+                // aplicada a la curva del corazón -> superficie tipo almohada, no un tubo hueco.
+                const phi = -Math.PI / 2 + (j / (GRID_ROWS - 1)) * Math.PI;
+                const scale = Math.cos(phi);
+                const depth = Math.sin(phi);
+                const row = [];
+                for (let i = 0; i < GRID_COLS; i++) {
+                    const t = (i / GRID_COLS) * Math.PI * 2;
+                    const x = scale * 16 * Math.pow(Math.sin(t), 3);
+                    const y = scale * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) - 5;
+                    const z = depth * Z_AMPLITUDE;
+                    row.push({ x, y, z });
+                }
+                heartGrid.push(row);
+            }
+        }
+
+        function setNodeColorSize(colors, sizes, idx, flag, factor) {
+            if (flag === 2) {
+                // Silueta exterior: magenta-blanco brillante
+                colors[idx * 3] = 1.0 * factor;
+                colors[idx * 3 + 1] = 0.6 * factor;
+                colors[idx * 3 + 2] = 1.0 * factor;
+                sizes[idx] = 1.6;
+            } else if (flag === 1) {
+                // Borde medio: magenta-violeta
+                colors[idx * 3] = 0.85 * factor;
+                colors[idx * 3 + 1] = 0.25 * factor;
+                colors[idx * 3 + 2] = 1.0 * factor;
+                sizes[idx] = 1.3;
+            } else {
+                // Interior: violeta profundo
+                colors[idx * 3] = 0.5 * factor;
+                colors[idx * 3 + 1] = 0.05 * factor;
+                colors[idx * 3 + 2] = 0.78 * factor;
+                sizes[idx] = 1.0;
+            }
+        }
+
+        function createHeartMeshes(glowTexture) {
+            const positions = new Float32Array(nodeCount * 3);
+            const colors = new Float32Array(nodeCount * 3);
+            const sizes = new Float32Array(nodeCount);
+            const targets = new Float32Array(nodeCount * 3);
+            const velocities = new Float32Array(nodeCount * 3);
+            const edgeFlags = new Float32Array(nodeCount);
+
+            const vIdx = (j, i) => j * GRID_COLS + i;
+
+            let idx = 0;
+            for (let j = 0; j < GRID_ROWS; j++) {
+                for (let i = 0; i < GRID_COLS; i++) {
+                    const p = heartGrid[j][i];
+                    targets[idx * 3] = p.x;
+                    targets[idx * 3 + 1] = p.y;
+                    targets[idx * 3 + 2] = p.z;
+
+                    const dist = Math.sqrt(p.x * p.x + (p.y + 5) * (p.y + 5) + p.z * p.z);
+                    const maxDist = 18;
+                    let flag;
+                    if (dist > maxDist * 0.85) flag = 2;
+                    else if (dist > maxDist * 0.7) flag = 1;
+                    else flag = 0;
+                    edgeFlags[idx] = flag;
+
+                    // Posición inicial dispersa (los nodos "vuelan" hacia su lugar)
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 50 + Math.random() * 25;
+                    positions[idx * 3] = Math.cos(angle) * radius;
+                    positions[idx * 3 + 1] = Math.sin(angle) * radius;
+                    positions[idx * 3 + 2] = (Math.random() - 0.5) * 50;
+
+                    setNodeColorSize(colors, sizes, idx, flag, 1);
+
+                    idx++;
+                }
+            }
+
+            // Índices de la red alámbrica: horizontal, vertical y una diagonal (patrón triangulado)
+            const indices = [];
+            for (let j = 0; j < GRID_ROWS; j++) {
+                for (let i = 0; i < GRID_COLS; i++) {
+                    const a = vIdx(j, i);
+                    if (i < GRID_COLS - 1) indices.push(a, vIdx(j, i + 1));
+                    if (j < GRID_ROWS - 1) indices.push(a, vIdx(j + 1, i));
+                    if (i < GRID_COLS - 1 && j < GRID_ROWS - 1) indices.push(a, vIdx(j + 1, i + 1));
+                }
+            }
+
+            const positionAttr = new THREE.BufferAttribute(positions, 3);
+            const colorAttrNodes = new THREE.BufferAttribute(colors, 3);
+            const colorAttrLines = new THREE.BufferAttribute(colors, 3);
+
+            const nodesGeometry = new THREE.BufferGeometry();
+            nodesGeometry.setAttribute('position', positionAttr);
+            nodesGeometry.setAttribute('color', colorAttrNodes);
+            nodesGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const nodesMaterial = createPointMaterial(glowTexture, 260);
+            nodePoints = new THREE.Points(nodesGeometry, nodesMaterial);
+            nodePoints.userData.targets = targets;
+            nodePoints.userData.velocities = velocities;
+            nodePoints.userData.edgeFlags = edgeFlags;
+            nodePoints.userData.activeCount = 0;
+
+            const linesGeometry = new THREE.BufferGeometry();
+            linesGeometry.setAttribute('position', positionAttr);
+            linesGeometry.setAttribute('color', colorAttrLines);
+            linesGeometry.setIndex(indices);
+
+            const linesMaterial = new THREE.LineBasicMaterial({
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                opacity: 0.5,
+                depthWrite: false
+            });
+            wireLines = new THREE.LineSegments(linesGeometry, linesMaterial);
+
+            heartGroup = new THREE.Group();
+            heartGroup.add(wireLines);
+            heartGroup.add(nodePoints);
+            scene.add(heartGroup);
+        }
+
+        function createSparkles(glowTexture) {
+            const positions = new Float32Array(SPARKLE_COUNT * 3);
+            const colors = new Float32Array(SPARKLE_COUNT * 3);
+            const sizes = new Float32Array(SPARKLE_COUNT);
+            const baseSizes = new Float32Array(SPARKLE_COUNT);
+            const seeds = new Float32Array(SPARKLE_COUNT);
+
+            for (let i = 0; i < SPARKLE_COUNT; i++) {
+                const nearHeart = Math.random() < 0.7;
+                let x, y, z;
+                if (nearHeart) {
+                    x = (Math.random() - 0.5) * 42;
+                    y = (Math.random() - 0.5) * 45 - 5;
+                    z = (Math.random() - 0.5) * 35;
+                } else {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 45 + Math.random() * 55;
+                    x = Math.cos(angle) * radius;
+                    y = Math.sin(angle) * radius * 0.8 - 5;
+                    z = (Math.random() - 0.5) * 80 - 20;
+                }
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+
+                const big = Math.random() < 0.12;
+                baseSizes[i] = big ? (2.5 + Math.random() * 3.5) : (0.4 + Math.random() * 1.6);
+                sizes[i] = 0;
+
+                const hue = Math.random();
+                if (hue < 0.3) {
+                    colors[i * 3] = 1.0; colors[i * 3 + 1] = 0.9; colors[i * 3 + 2] = 1.0;
+                } else if (hue < 0.7) {
+                    colors[i * 3] = 0.95; colors[i * 3 + 1] = 0.5; colors[i * 3 + 2] = 1.0;
+                } else {
+                    colors[i * 3] = 0.65; colors[i * 3 + 1] = 0.3; colors[i * 3 + 2] = 0.95;
+                }
+
+                seeds[i] = Math.random() * Math.PI * 2;
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const material = createPointMaterial(glowTexture, 260);
+            sparklePoints = new THREE.Points(geometry, material);
+            sparklePoints.userData.baseSizes = baseSizes;
+            sparklePoints.userData.seeds = seeds;
+            scene.add(sparklePoints);
+        }
+
+        // Halos grandes y tenues al fondo, simulan los haces de luz de la imagen de referencia
+        function createLightBeams(glowTexture) {
+            const beamMaterial = new THREE.SpriteMaterial({
+                map: glowTexture,
+                color: 0x9d4edd,
+                transparent: true,
+                opacity: 0.045,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            // Un par de halos amplios y muy tenues en las esquinas superiores, para
+            // sugerir haces de luz ambientales sin formar una nube brillante central.
+            const positionsAndScales = [
+                { x: -95, y: 95, z: -230, sx: 260, sy: 340 },
+                { x: 100, y: 90, z: -230, sx: 240, sy: 320 }
+            ];
+
+            positionsAndScales.forEach(cfg => {
+                const sprite = new THREE.Sprite(beamMaterial.clone());
+                sprite.position.set(cfg.x, cfg.y, cfg.z);
+                sprite.scale.set(cfg.sx, cfg.sy, 1);
+                scene.add(sprite);
+            });
+        }
+
+        function updateHeart() {
+            const positions = nodePoints.geometry.attributes.position.array;
+            const colors = nodePoints.geometry.attributes.color.array;
+            const sizes = nodePoints.geometry.attributes.size.array;
+            const velocities = nodePoints.userData.velocities;
+            const targets = nodePoints.userData.targets;
+            const edgeFlags = nodePoints.userData.edgeFlags;
+
+            if (nodePoints.userData.activeCount < nodeCount) {
+                const toAdd = Math.min(config.speed, nodeCount - nodePoints.userData.activeCount);
+                nodePoints.userData.activeCount += toAdd;
+            }
+            const activeCount = nodePoints.userData.activeCount;
+
+            for (let i = 0; i < activeCount; i++) {
+                const tx = targets[i * 3], ty = targets[i * 3 + 1], tz = targets[i * 3 + 2];
+                const dx = tx - positions[i * 3];
+                const dy = ty - positions[i * 3 + 1];
+                const dz = tz - positions[i * 3 + 2];
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                if (dist > 0.5) {
+                    velocities[i * 3] += dx * 0.004;
+                    velocities[i * 3 + 1] += dy * 0.004;
+                    velocities[i * 3 + 2] += dz * 0.004;
+                } else {
+                    velocities[i * 3] = dx * 0.1;
+                    velocities[i * 3 + 1] = dy * 0.1 + Math.sin(time * 2 + i * 0.1) * 0.02;
+                    velocities[i * 3 + 2] = dz * 0.1;
+                }
+                velocities[i * 3] *= 0.9;
+                velocities[i * 3 + 1] *= 0.9;
+                velocities[i * 3 + 2] *= 0.9;
+
+                positions[i * 3] += velocities[i * 3];
+                positions[i * 3 + 1] += velocities[i * 3 + 1];
+                positions[i * 3 + 2] += velocities[i * 3 + 2];
+
+                const flag = edgeFlags[i];
+                const brightness = 1.0 + Math.sin(time * 3 + i * 0.05) * 0.2;
+                const pulse = 1.0 + Math.sin(time * 2 + i * 0.02) * 0.15;
+                setNodeColorSize(colors, sizes, i, flag, brightness);
+                sizes[i] *= pulse * config.size;
+            }
+
+            nodePoints.geometry.attributes.position.needsUpdate = true;
+            nodePoints.geometry.attributes.color.needsUpdate = true;
+            nodePoints.geometry.attributes.size.needsUpdate = true;
+            wireLines.geometry.attributes.position.needsUpdate = true;
+            wireLines.geometry.attributes.color.needsUpdate = true;
+
+            document.getElementById('counter').textContent = activeCount.toLocaleString();
+            document.getElementById('particle-count').textContent = activeCount.toLocaleString();
+
+            updateSparkles(activeCount / nodeCount);
+        }
+
+        function updateSparkles(progress) {
+            const sizes = sparklePoints.geometry.attributes.size.array;
+            const baseSizes = sparklePoints.userData.baseSizes;
+            const seeds = sparklePoints.userData.seeds;
+            const eased = Math.min(1, progress * 1.3);
+
+            for (let i = 0; i < SPARKLE_COUNT; i++) {
+                const twinkle = 0.6 + Math.sin(time * 2 + seeds[i]) * 0.4;
+                sizes[i] = baseSizes[i] * eased * twinkle * config.size;
+            }
+            sparklePoints.geometry.attributes.size.needsUpdate = true;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            time += 0.016;
+
+            frames++;
+            const currentTime = Date.now();
+            if (currentTime >= lastTime + 1000) {
+                fps = frames;
+                frames = 0;
+                lastTime = currentTime;
+                document.getElementById('fps').textContent = fps;
+            }
+
+            if (heartGroup && config.autoRotation > 0) {
+                heartGroup.rotation.y += config.autoRotation;
+            }
+
+            if (nodePoints) {
+                updateHeart();
+            }
+
+            controls.update();
+
+            composer.render();
+        }
+
+        function setupPostProcessing() {
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(new THREE.RenderPass(scene, camera));
+
+            bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                1.15,  // strength
+                0.55,  // radius
+                0.15   // threshold
+            );
+            composer.addPass(bloomPass);
+        }
+
+        function setupControls() {
+            document.getElementById('speed').addEventListener('input', (e) => {
+                config.speed = parseInt(e.target.value);
+                document.getElementById('speed-value').textContent = config.speed;
+            });
+
+            document.getElementById('size').addEventListener('input', (e) => {
+                config.size = parseFloat(e.target.value);
+                document.getElementById('size-value').textContent = config.size;
+            });
+
+            document.getElementById('rotation').addEventListener('input', (e) => {
+                config.autoRotation = parseFloat(e.target.value);
+                document.getElementById('rotation-value').textContent = config.autoRotation;
+            });
+        }
+
+        function onKeyDown(event) {
+            if (event.key === 'p' || event.key === 'P') {
+                const panel = document.getElementById('debug-panel');
+                panel.classList.toggle('visible');
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // === Modal y animación typewriter ===
+        const message = `Te conocí hace poco, pero hay personas que
+tienen una forma tan linda de llegar,
+que en muy poco tiempo se vuelven especiales.
+y aunque todavía estamos escribiendo
+esta historia, tu presencia ya tiene algo
+que me da calma y alegría...
+como una sonrisa que llegó para darle
+luz, a mis días.`;
+
+        function typeWriter(text, element, speed = 50) {
+            element.innerHTML = '';
+            let i = 0;
+            const cursor = document.createElement('span');
+            cursor.className = 'typewriter-cursor';
+            
+            function type() {
+                if (i < text.length) {
+                    const char = text.charAt(i);
+                    if (char === '\n') {
+                        element.innerHTML += '<br>';
+                    } else {
+                        element.innerHTML += char;
+                    }
+                    i++;
+                    setTimeout(type, speed);
+                } else {
+                    element.appendChild(cursor);
+                }
+            }
+            type();
+        }
+
+        function openModal() {
+            const modal = document.getElementById('message-modal');
+            modal.classList.add('show');
+            const messageText = document.getElementById('message-text');
+            setTimeout(() => {
+                typeWriter(message, messageText, 50);
+            }, 300);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('message-modal');
+            modal.classList.remove('show');
+        }
+
+        document.getElementById('message-button').addEventListener('click', openModal);
+        
+        document.getElementById('message-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'message-modal') {
+                closeModal();
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>
